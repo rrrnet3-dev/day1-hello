@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export default function Counter({ title, theme }) {
   const [count, setCount] = useState(0);
+  const [history, setHistory] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [message, setMessage] = useState('');
@@ -14,17 +15,19 @@ export default function Counter({ title, theme }) {
   useEffect(() => {
     if (isMounted) {
       const saved = localStorage.getItem(`count-${title}`);
+      const savedHistory = localStorage.getItem(`history-${title}`);
       if (saved) setCount(parseInt(saved));
+      if (savedHistory) setHistory(JSON.parse(savedHistory));
     }
   }, [isMounted, title]);
 
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem(`count-${title}`, count);
+      localStorage.setItem(`history-${title}`, JSON.stringify(history));
     }
-  }, [count, title, isMounted]);
+  }, [count, history, title, isMounted]);
 
-  // Clear message after 2 seconds
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(''), 2000);
@@ -32,8 +35,20 @@ export default function Counter({ title, theme }) {
     }
   }, [message]);
 
+  const addToHistory = (action, oldValue, newValue) => {
+    setHistory(prev => {
+      const newHistory = [...prev, { action, oldValue, newValue }];
+      return newHistory.slice(-5); // Keep only last 5
+    });
+  };
+
   const showLimitMessage = (type) => {
     setMessage(type === 'max'? 'Max 100 reached' : 'Min 0 reached');
+  };
+
+  const updateCount = (newValue, action) => {
+    addToHistory(action, count, newValue);
+    setCount(newValue);
   };
 
   const increment = () => {
@@ -41,7 +56,7 @@ export default function Counter({ title, theme }) {
       showLimitMessage('max');
       return;
     }
-    setCount(count + 1);
+    updateCount(count + 1, '+1');
   };
 
   const decrement = () => {
@@ -49,37 +64,40 @@ export default function Counter({ title, theme }) {
       showLimitMessage('min');
       return;
     }
-    setCount(count - 1);
+    updateCount(count - 1, '-1');
   };
 
   const addFive = () => {
-    if (count + 5 > MAX) {
-      setCount(MAX);
-      showLimitMessage('max');
-      return;
-    }
-    setCount(count + 5);
+    const newValue = count + 5 > MAX? MAX : count + 5;
+    if (count + 5 > MAX) showLimitMessage('max');
+    updateCount(newValue, '+5');
   };
 
   const subFive = () => {
-    if (count - 5 < MIN) {
-      setCount(MIN);
-      showLimitMessage('min');
-      return;
-    }
-    setCount(count - 5);
+    const newValue = count - 5 < MIN? MIN : count - 5;
+    if (count - 5 < MIN) showLimitMessage('min');
+    updateCount(newValue, '-5');
   };
 
   const double = () => {
-    if (count * 2 > MAX) {
-      setCount(MAX);
-      showLimitMessage('max');
-      return;
-    }
-    setCount(count * 2);
+    const newValue = count * 2 > MAX? MAX : count * 2;
+    if (count * 2 > MAX) showLimitMessage('max');
+    updateCount(newValue, 'x2');
   };
 
-  // Keyboard controls with limits
+  const reset = () => {
+    updateCount(0, 'Reset');
+  };
+
+  const undo = () => {
+    if (history.length === 0) return;
+    const lastAction = history[history.length - 1];
+    setCount(lastAction.oldValue);
+    setHistory(prev => prev.slice(0, -1));
+    setMessage('Undid ' + lastAction.action);
+  };
+
+  // Keyboard controls
   useEffect(() => {
     if (!isMounted ||!isFocused) return;
 
@@ -94,7 +112,7 @@ export default function Counter({ title, theme }) {
       }
       if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
-        setCount(0);
+        reset();
       }
       if (e.key === ' ') {
         e.preventDefault();
@@ -104,18 +122,23 @@ export default function Counter({ title, theme }) {
         e.preventDefault();
         addFive();
       }
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        undo();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMounted, isFocused, count]);
+  }, [isMounted, isFocused, count, history]);
 
   const bgClass = theme === 'dark' 
-  ? `bg-neutral-800 border-neutral-700 ${isFocused? 'ring-2 ring-teal-500' : ''}`
+ ? `bg-neutral-800 border-neutral-700 ${isFocused? 'ring-2 ring-teal-500' : ''}`
     : `bg-white border-gray-300 shadow-lg ${isFocused? 'ring-2 ring-teal-500' : ''}`;
   
   const textClass = theme === 'dark'? 'text-white' : 'text-black';
   const disabledClass = 'opacity-40 cursor-not-allowed';
+  const historyTextClass = theme === 'dark'? 'text-neutral-400' : 'text-gray-500';
 
   if (!isMounted) return <div className={`p-6 rounded-xl border ${bgClass} ${textClass}`}>Loading...</div>;
 
@@ -128,16 +151,29 @@ export default function Counter({ title, theme }) {
     >
       <h2 className="text-xl font-semibold mb-2">{title}</h2>
       
-      {isFocused && <p className="text-xs mb-2 text-teal-400">↑/↓ +1/-1 • R Reset • Space x2 • 5 +5</p>}
+      {isFocused && <p className="text-xs mb-2 text-teal-400">↑/↓ +1/-1 • R Reset • Space x2 • 5 +5 • Ctrl+Z Undo</p>}
       {!isFocused && <p className="text-xs mb-2 opacity-50">Click to enable keyboard</p>}
       
       {message && (
         <p className="text-xs mb-2 text-rose-400 font-semibold animate-pulse">{message}</p>
       )}
       
-      <p className="text-5xl font-bold mb-6">{count}</p>
+      <p className="text-5xl font-bold mb-4">{count}</p>
       
-      <div className="grid grid-cols-3 gap-2 justify-center">
+      {history.length > 0 && (
+        <div className={`text-xs mb-4 ${historyTextClass}`}>
+          <p className="font-semibold mb-1">History:</p>
+          <div className="flex gap-2 justify-center flex-wrap">
+            {history.map((item, idx) => (
+              <span key={idx} className="px-2 py-1 rounded bg-neutral-700/30">
+                {item.action}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      <div className="grid grid-cols-3 gap-2 justify-center mb-2">
         <button 
           onClick={increment} 
           disabled={count >= MAX}
@@ -151,7 +187,7 @@ export default function Counter({ title, theme }) {
         >-1</button>
         
         <button 
-          onClick={() => setCount(0)} 
+          onClick={reset} 
           className="bg-neutral-600 hover:bg-neutral-500 text-white px-4 py-2 rounded font-bold transition"
         >Reset</button>
         
@@ -173,6 +209,14 @@ export default function Counter({ title, theme }) {
           className={`bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded font-bold transition ${count >= MAX || count * 2 > MAX? disabledClass : ''}`}
         >x2</button>
       </div>
+      
+      <button 
+        onClick={undo} 
+        disabled={history.length === 0}
+        className={`w-full bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded font-bold transition ${history.length === 0? disabledClass : ''}`}
+      >
+        Undo {history.length > 0? `(${history.length})` : ''}
+      </button>
     </div>
   )
 }
