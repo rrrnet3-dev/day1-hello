@@ -4,6 +4,7 @@ import Counter from '../components/Counter';
 export default function Home() {
   const [theme, setTheme] = useState('dark');
   const [isMounted, setIsMounted] = useState(false);
+  const [activeCounter, setActiveCounter] = useState(null); // 'main' or 'second' or null
 
   useEffect(() => { setIsMounted(true) }, []);
 
@@ -17,35 +18,47 @@ export default function Home() {
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem('theme', theme);
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
     }
   }, [theme, isMounted]);
 
-  if (!isMounted) return null; // prevent hydration mismatch
+  const toggleTheme = () => {
+    setTheme(theme === 'dark'? 'light' : 'dark');
+  };
+
+  const bgClass = theme === 'dark'? 'bg-neutral-900 text-white' : 'bg-gray-100 text-black';
+
+  if (!isMounted) return <div className={`${bgClass} min-h-screen`}></div>;
 
   return (
-    <div className={`${theme === 'dark'? 'bg-neutral-900 text-white' : 'bg-gray-100 text-black'} min-h-screen p-8`}>
-      <div className="max-w-2xl mx-auto text-center">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold">RNet Counter v0.9</h1>
-            <p className={theme === 'dark'? 'text-neutral-400' : 'text-gray-600'}>Day 11 of 100 Days of Code</p> 
-          </div>
-          <button 
-            onClick={() => setTheme(theme === 'dark'? 'light' : 'dark')}
-            className="text-3xl p-2 rounded-lg hover:bg-neutral-700"
-          >
-            {theme === 'dark'? '☀️' : '🌙'}
-          </button>
-        </div>
+    <div 
+      className={`${bgClass} min-h-screen flex flex-col items-center justify-center p-8 transition-colors duration-300`}
+      onClick={() => setActiveCounter(null)} // Click background = deselect all
+    >
+      <button 
+        onClick={toggleTheme} 
+        className="absolute top-4 right-4 bg-teal-500 hover:bg-teal-400 text-white p-3 rounded-full font-bold text-xl transition"
+        onClick={(e) => { e.stopPropagation(); toggleTheme(); }}
+      >
+        {theme === 'dark'? '☀️' : '🌙'}
+      </button>
+      
+      <div onClick={(e) => e.stopPropagation()}> {/* Prevent deselect when clicking counters */}
+        <h1 className="text-4xl font-bold mb-2 text-center">RNet Counter v0.9</h1>
+        <p className={`text-center mb-8 ${theme === 'dark'? 'text-neutral-400' : 'text-gray-600'}`}>Day 11 of 100 Days of Code</p>
         
-        <div className="grid md:grid-cols-2 gap-8">
-          <Counter title="Main Counter" theme={theme} />
-          <Counter title="Second Counter" theme={theme} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Counter 
+            title="Main Counter" 
+            theme={theme} 
+            isActive={activeCounter === 'main'}
+            onActivate={() => setActiveCounter('main')}
+          />
+          <Counter 
+            title="Second Counter" 
+            theme={theme}
+            isActive={activeCounter === 'second'}
+            onActivate={() => setActiveCounter('second')}
+          />
         </div>
       </div>
     </div>
