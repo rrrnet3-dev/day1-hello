@@ -43,8 +43,8 @@ export default function Home() {
       </button>
       
       <div onClick={(e) => e.stopPropagation()}> {/* Prevent deselect when clicking counters */}
-        <h1 className="text-4xl font-bold mb-2 text-center">RNet Counter v0.9</h1>
-        <p className={`text-center mb-8 ${theme === 'dark'? 'text-neutral-400' : 'text-gray-600'}`}>Day 11 of 100 Days of Code</p>
+        <h1 className="text-4xl font-bold">RNet Counter v1.0</h1>
+<p className={theme === 'dark'? 'text-neutral-400' : 'text-gray-600'}>Day 12 of 100 Days of Code</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Counter 
